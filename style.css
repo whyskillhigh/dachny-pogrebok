@@ -1,0 +1,896 @@
+/*
+ * Дачный Погребок: Закатки на зиму (v3.0)
+ * Стили и оформление для взрослой аудитории (ВК/ОК, 45-70+)
+ * Тёплый солнечный погребок, шрифты Rubik + Nunito, векторные SVG-иконки, объёмные кнопки.
+ */
+
+:root {
+    --wood-dark: #33190d;
+    --wood-mid: #5a2f18;
+    --wood-light: #9e5a31;
+    --wood-border: #8d5029;
+    --amber-gold: #fbbf24;
+    --amber-light: #fff8e7;
+    --amber-dark: #c2640c;
+    --cream-bg: #fffcf4;
+    --green-leaf: #2e7d32;
+    --green-light: #4caf50;
+    --red-berry: #d32f2f;
+    --shadow-deep: 0 12px 28px rgba(32, 14, 4, 0.45);
+    --shadow-soft: 0 4px 12px rgba(32, 14, 4, 0.25);
+    --font-main: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-display: "Rubik", "Nunito", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #4d2d18;
+    font-family: var(--font-main);
+    color: #3e2723;
+}
+
+/* Тёплый десктопный фон солнечного погребка с полками и банками */
+.cellar-desktop-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 224, 150, 0.08) 0%, rgba(28, 12, 4, 0.48) 100%),
+        url('bg.jpg?v=5.0') center center / cover no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+}
+
+/* Аккуратные полупрозрачные подсказки в нижних углах, не перекрывающие полки с банками */
+.desktop-decor-left,
+.desktop-decor-right {
+    position: absolute;
+    bottom: 20px;
+    width: 248px;
+    padding: 14px 16px;
+    color: var(--amber-light);
+    font-size: 13px;
+    line-height: 1.42;
+    background: linear-gradient(180deg, rgba(64, 33, 16, 0.82) 0%, rgba(36, 17, 7, 0.88) 100%);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border: 2px solid rgba(217, 155, 92, 0.65);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 240, 200, 0.2), 0 10px 26px rgba(18, 8, 2, 0.55);
+    pointer-events: none;
+    display: none;
+}
+
+@media (min-width: 1120px) {
+    .desktop-decor-left {
+        display: block;
+        left: 22px;
+    }
+    .desktop-decor-right {
+        display: block;
+        right: 22px;
+    }
+}
+
+.decor-title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 800;
+    color: #fde68a;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-bottom: 2px dashed rgba(253, 230, 138, 0.35);
+    padding-bottom: 9px;
+}
+
+.decor-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+}
+
+.decor-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-weight: 700;
+}
+
+.decor-bullet {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(251, 191, 36, 0.16);
+    border: 1.5px solid rgba(251, 191, 36, 0.45);
+    color: #fde68a;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+/* Главный вертикальный контейнер игры */
+.game-viewport {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    height: 100%;
+    max-height: 100vh;
+    min-width: 0;
+    background: #462614;
+    box-shadow: 0 18px 48px rgba(24, 10, 3, 0.65);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 10;
+}
+
+@media (min-width: 501px) {
+    .game-viewport {
+        height: 96vh;
+        max-height: 880px;
+        border-radius: 26px;
+        border: 4px solid #b57343;
+    }
+}
+
+@media (max-width: 500px) {
+    .cellar-desktop-bg {
+        padding: 0;
+    }
+    .game-viewport {
+        width: 100vw;
+        max-width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
+        border: none;
+        border-radius: 0;
+    }
+}
+
+/* ШАПКА: тёплая резная деревянная вывеска */
+.game-header {
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #713d1f 0%, #4e2813 100%);
+    border-bottom: 3px solid #2d1509;
+    padding: 8px 10px 7px;
+    box-shadow: inset 0 1px 0 rgba(255, 232, 185, 0.25), 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+.header-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 7px;
+}
+
+.brand-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 1;
+    min-width: 0;
+    background: rgba(34, 15, 6, 0.38);
+    border: 1.5px solid rgba(251, 191, 36, 0.35);
+    border-radius: 10px;
+    padding: 4px 7px;
+}
+
+.brand-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.brand-title {
+    font-family: var(--font-display);
+    font-size: clamp(12.5px, 3.6vw, 14.5px);
+    font-weight: 800;
+    color: #fffbeb;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
+    letter-spacing: 0.1px;
+    white-space: nowrap;
+}
+
+.header-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+/* Кнопки шапки с 3D-бортиком и бликом */
+.wood-btn-small {
+    background: linear-gradient(180deg, #9d5b34 0%, #6b381b 100%);
+    border: 2px solid #c37c4d;
+    border-radius: 9px;
+    padding: 4px 7px;
+    color: #fffbeb;
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 3px 0 #351a0b, 0 4px 6px rgba(0, 0, 0, 0.35);
+    transition: transform 0.1s, filter 0.1s, box-shadow 0.1s;
+    white-space: nowrap;
+}
+
+.wood-btn-small.icon-only {
+    padding: 4px 7px;
+}
+
+.svg-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+@media (max-width: 400px) {
+    .wood-btn-small .btn-label {
+        display: none;
+    }
+    .wood-btn-small {
+        padding: 6px 8px;
+    }
+}
+
+.wood-btn-small:active {
+    transform: translateY(2px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 #351a0b;
+}
+
+.wood-btn-small.muted {
+    background: linear-gradient(180deg, #645348 0%, #44372f 100%);
+    border-color: #8c786a;
+    color: #d7ccc8;
+    opacity: 0.9;
+}
+
+/* Блоки счета: крупные, контрастные для 45-70+ */
+.score-board-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.score-badge {
+    flex: 1;
+    background: linear-gradient(180deg, rgba(45, 22, 10, 0.72) 0%, rgba(30, 14, 6, 0.88) 100%);
+    border: 2px solid #b45309;
+    border-radius: 12px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255, 224, 150, 0.15);
+}
+
+.score-badge.primary {
+    background: linear-gradient(180deg, rgba(102, 54, 24, 0.88) 0%, rgba(56, 27, 12, 0.96) 100%);
+    border-color: var(--amber-gold);
+}
+
+.score-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #fde047;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.score-val {
+    font-family: var(--font-display);
+    font-size: clamp(20px, 5.5vw, 24px);
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.15;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
+}
+
+.next-preview-box {
+    background: linear-gradient(180deg, rgba(45, 22, 10, 0.72) 0%, rgba(30, 14, 6, 0.88) 100%);
+    border: 2px solid #b45309;
+    border-radius: 12px;
+    padding: 3px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 66px;
+    flex-shrink: 0;
+}
+
+.next-label {
+    font-size: 10px;
+    font-weight: 800;
+    color: #fef3c7;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+}
+
+#nextFruitCanvas {
+    display: block;
+}
+
+/* ИГРОВАЯ ОБЛАСТЬ С CANVAS — идеальное 400:660 позиционирование в нише погребка */
+.canvas-wrapper {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    container-type: size;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background:
+        radial-gradient(circle at 50% 25%, rgba(255, 224, 150, 0.14) 0%, rgba(0, 0, 0, 0) 60%),
+        repeating-linear-gradient(
+            0deg,
+            #532f1b 0px,
+            #5f3720 62px,
+            #3d2111 64px
+        );
+    overflow: hidden;
+}
+
+#gameCanvas {
+    width: min(100cqw, calc(100cqh * 400 / 660));
+    height: min(100cqh, calc(100cqw * 660 / 400));
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 400 / 660;
+    border-left: 2px solid rgba(195, 124, 77, 0.45);
+    border-right: 2px solid rgba(195, 124, 77, 0.45);
+    box-shadow: 0 0 26px rgba(20, 8, 2, 0.48);
+    touch-action: none;
+    cursor: grab;
+    display: block;
+}
+
+#gameCanvas.scoop-mode {
+    cursor: crosshair;
+}
+
+#gameCanvas:active {
+    cursor: grabbing;
+}
+
+#gameCanvas.scoop-mode:active {
+    cursor: crosshair;
+}
+
+/* Подсказка активной Поварёшки поверх банки */
+.scoop-banner {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #5c3318 0%, #3a1d0d 100%);
+    border: 2px solid #ffd54f;
+    border-radius: 16px;
+    padding: 5px 10px 5px 12px;
+    color: #fffbeb;
+    font-family: var(--font-display);
+    font-size: 12.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.48);
+    z-index: 25;
+    white-space: nowrap;
+}
+
+.scoop-cancel-btn {
+    background: #d84315;
+    border: 1.5px solid #ffcc80;
+    border-radius: 9px;
+    color: #ffffff;
+    font-family: var(--font-display);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    cursor: pointer;
+}
+
+.scoop-cancel-btn:active {
+    transform: scale(0.96);
+}
+
+/* Предупреждение об опасности (3 секунды) */
+.danger-banner {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #d32f2f 0%, #9a1818 100%);
+    border: 2px solid #ff8a80;
+    border-radius: 18px;
+    padding: 6px 16px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    z-index: 20;
+    animation: dangerPulse 0.8s infinite alternate;
+}
+
+@keyframes dangerPulse {
+    from { transform: translateX(-50%) scale(0.98); }
+    to { transform: translateX(-50%) scale(1.02); }
+}
+
+.danger-text {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: #fffde7;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.timer-sec {
+    color: #ffeb3b;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.danger-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.danger-progress-fill {
+    width: 0%;
+    height: 100%;
+    background: #ffeb3b;
+    transition: width 0.1s linear;
+}
+
+/* НИЖНЯЯ ПАНЕЛЬ С КРУПНЫМИ ОБЪЁМНЫМИ КНОПКАМИ */
+.bottom-controls {
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #592e17 0%, #3a1d0d 100%);
+    border-top: 3px solid #9e5a31;
+    padding: 7px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Ряд бустеров: Поварёшка и Потрясти банку */
+.boosters-row {
+    display: flex;
+    gap: 8px;
+}
+
+.booster-btn {
+    flex: 1;
+    height: 36px;
+    background: linear-gradient(180deg, #8b502a 0%, #5c3118 100%);
+    border: 2px solid #d4945a;
+    border-radius: 11px;
+    color: #fffbe6;
+    font-family: var(--font-display);
+    font-size: clamp(12px, 3.3vw, 13.5px);
+    font-weight: 700;
+    padding: 0 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 3px 0 #351a0b;
+    transition: transform 0.08s, box-shadow 0.08s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.booster-btn:active {
+    transform: translateY(2px);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 #351a0b;
+}
+
+.booster-btn.active {
+    background: linear-gradient(180deg, #ffb300 0%, #ef6c00 100%);
+    border-color: #fff59d;
+    color: #ffffff;
+    box-shadow: 0 3px 0 #8d3200, 0 0 12px rgba(255, 213, 79, 0.55);
+    animation: boosterPulse 0.8s infinite alternate;
+}
+
+.booster-btn.ad-ready {
+    background: linear-gradient(180deg, #7c4d2b 0%, #523018 100%);
+    border-color: #ffe082;
+}
+
+@keyframes boosterPulse {
+    from { transform: scale(0.985); }
+    to { transform: scale(1.015); }
+}
+
+.booster-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #2e7d32;
+    border: 1.5px solid #a5d6a7;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.booster-btn.ad-ready .booster-badge {
+    background: #ef6c00;
+    border-color: #ffe082;
+}
+
+/* Главная большая кнопка "СБРОСИТЬ ПЛОД" */
+.big-drop-btn {
+    width: 100%;
+    height: 46px;
+    background: linear-gradient(180deg, #55b859 0%, #2e7d32 100%);
+    border: 2.5px solid #9be49d;
+    border-radius: 14px;
+    color: #ffffff;
+    font-family: var(--font-display);
+    font-size: clamp(16px, 4.5vw, 19px);
+    font-weight: 800;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.38), 0 4px 0 #174b1a, 0 6px 12px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 2px 2px rgba(0, 0, 0, 0.4);
+    transition: transform 0.08s, filter 0.08s, box-shadow 0.08s;
+}
+
+.big-drop-btn.warm-orange {
+    background: linear-gradient(180deg, #ff9800 0%, #e65100 100%);
+    border-color: #ffe082;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 4px 0 #9f2d00, 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.big-drop-btn:active {
+    transform: translateY(3px);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 #174b1a;
+    filter: brightness(0.96);
+}
+
+.sub-controls-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.wood-action-btn {
+    flex: 1;
+    height: 38px;
+    background: linear-gradient(180deg, #ae6437 0%, #733b1d 100%);
+    border: 2px solid #df9b6a;
+    border-radius: 11px;
+    color: #fffbe6;
+    font-family: var(--font-display);
+    font-size: clamp(12.5px, 3.6vw, 14.5px);
+    font-weight: 700;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.3), 0 3px 0 #421f0c, 0 4px 8px rgba(0, 0, 0, 0.32);
+    transition: transform 0.08s, box-shadow 0.08s;
+    white-space: nowrap;
+}
+
+.wood-action-btn:active {
+    transform: translateY(2px);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 0 #421f0c;
+}
+
+.wood-action-btn.accent {
+    background: linear-gradient(180deg, #f57c00 0%, #d84315 100%);
+    border-color: #ffcc80;
+    color: #ffffff;
+    box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #7f2407, 0 4px 8px rgba(0, 0, 0, 0.32);
+}
+
+/* Правовой подвал для модерации VK / OK */
+.legal-footer {
+    flex-shrink: 0;
+    background: #2b1509;
+    border-top: 1px solid rgba(195, 124, 77, 0.35);
+    padding: 4px 8px 5px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 4px 8px;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.legal-footer a {
+    color: #e6ccb2;
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.legal-footer a:hover,
+.legal-footer a:focus-visible {
+    color: #fff3cd;
+    text-decoration: underline;
+}
+
+.legal-footer .legal-sep {
+    color: rgba(230, 204, 178, 0.55);
+}
+
+/* МОДАЛЬНЫЕ ОКНА */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(24, 11, 4, 0.78);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    z-index: 100;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-card {
+    width: 100%;
+    max-width: 380px;
+    background: linear-gradient(180deg, #fffaf0 0%, #f5ebd1 100%);
+    border: 4px solid #713d1f;
+    border-radius: 22px;
+    padding: 20px;
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.8), 0 14px 36px rgba(0, 0, 0, 0.6);
+    position: relative;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-close-corner {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: linear-gradient(180deg, #e53935 0%, #b71c1c 100%);
+    border: 2px solid #ffcdd2;
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.modal-icon {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.modal-title {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--wood-dark);
+}
+
+.modal-subtitle {
+    font-size: 15px;
+    color: #6d4c41;
+    margin-top: 4px;
+    font-weight: 700;
+}
+
+.modal-body {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+/* Карточка счета в окне Game Over */
+.gameover-score-card {
+    background: #fff;
+    border: 3px solid var(--amber-dark);
+    border-radius: 16px;
+    padding: 14px;
+    text-align: center;
+    margin-bottom: 10px;
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.go-score-label {
+    font-size: 14px;
+    font-weight: 800;
+    color: #795548;
+}
+
+.go-score-num {
+    font-family: var(--font-display);
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--wood-dark);
+    line-height: 1.1;
+    margin: 4px 0;
+}
+
+.go-best-row {
+    font-size: 16px;
+    font-weight: 800;
+    color: #b45309;
+    border-top: 1px dashed #d7ccc8;
+    padding-top: 6px;
+    margin-top: 6px;
+}
+
+/* Список лестницы заготовок */
+.ladder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ladder-item {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 2px solid #dfd3c3;
+    border-radius: 13px;
+    padding: 6px 10px;
+    gap: 10px;
+}
+
+.ladder-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ladder-info {
+    flex: 1;
+}
+
+.ladder-name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--wood-dark);
+}
+
+.ladder-desc {
+    font-size: 13px;
+    font-weight: 800;
+    color: #2e7d32;
+}
+
+.ladder-badge {
+    background: linear-gradient(180deg, #ffe082 0%, #ffb300 100%);
+    color: #7c2d12;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    padding: 4px 7px;
+    border-radius: 7px;
+    border: 1.5px solid #e65100;
+}
+
+.ladder-arrow {
+    color: #9e8a7e;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Окно Похвастаться */
+.share-textarea {
+    width: 100%;
+    height: 104px;
+    background: #fff;
+    border: 2px solid #bcaaa4;
+    border-radius: 12px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    color: #3e2723;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+}
+
+/* Уведомление об успешном копировании */
+.copy-toast {
+    background: #2e7d32;
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 8px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+    animation: toastPop 0.2s ease-out;
+}
+
+@keyframes toastPop {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.hidden {
+    display: none !important;
+}
