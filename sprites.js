@@ -430,101 +430,126 @@ class SpriteRenderer {
         ctx.restore();
     }
 
-    // 5. СПЕЛАЯ ТЫКВА (фикс ширины: полные ±0.99*r без бокового зазора)
+    // 5. СПЕЛАЯ ТЫКВА (объёмная многодольная 3D-тыква ±0.99*r с волнистыми рёбрами и листочком)
     drawPumpkin(ctx, r) {
         ctx.save();
 
-        // Полный пухлый контур тыквы
-        ctx.beginPath();
-        ctx.ellipse(0, r * 0.02, r * 0.99, r * 0.97, 0, 0, Math.PI * 2);
-        const baseGrad = ctx.createRadialGradient(-r * 0.28, -r * 0.28, r * 0.12, 0, r * 0.02, r * 1.05);
-        baseGrad.addColorStop(0, '#ffb74d');
-        baseGrad.addColorStop(0.45, '#fb8c00');
-        baseGrad.addColorStop(0.82, '#e65100');
-        baseGrad.addColorStop(1, '#b83206');
-        ctx.fillStyle = baseGrad;
-        ctx.fill();
+        const lobes = [
+            { x: -0.56, y: 0.03, rx: 0.43, ry: 0.84, rot: -0.14, c0: '#ffb74d', c1: '#f57c00', c2: '#d84315', c3: '#872000' },
+            { x:  0.56, y: 0.03, rx: 0.43, ry: 0.84, rot:  0.14, c0: '#ffa726', c1: '#ef6c00', c2: '#bf360c', c3: '#7a1c00' },
+            { x: -0.35, y: 0.02, rx: 0.37, ry: 0.91, rot: -0.08, c0: '#ffcc80', c1: '#fb8c00', c2: '#e65100', c3: '#9a2604' },
+            { x:  0.35, y: 0.02, rx: 0.37, ry: 0.91, rot:  0.08, c0: '#ffb74d', c1: '#f57c00', c2: '#d84315', c3: '#8e2204' },
+            { x: -0.16, y: 0.01, rx: 0.31, ry: 0.95, rot: -0.03, c0: '#ffd54f', c1: '#ffa726', c2: '#ef6c00', c3: '#a82c05' },
+            { x:  0.16, y: 0.01, rx: 0.31, ry: 0.95, rot:  0.03, c0: '#ffcc80', c1: '#fb8c00', c2: '#e65100', c3: '#9a2604' },
+            { x:  0.00, y: 0.01, rx: 0.27, ry: 0.97, rot:  0.00, c0: '#ffe082', c1: '#ffa726', c2: '#ef6c00', c3: '#b53005' }
+        ];
 
-        // Внутри силуэта рисуем объёмные дольки и рёбра по всей ширине ±0.99*r
-        ctx.save();
-        ctx.beginPath();
-        ctx.ellipse(0, r * 0.02, r * 0.99, r * 0.97, 0, 0, Math.PI * 2);
-        ctx.clip();
-
-        const ribs = [-0.72, -0.44, -0.16, 0.16, 0.44, 0.72];
-        ribs.forEach((rx) => {
+        lobes.forEach((lb) => {
+            ctx.save();
+            ctx.translate(lb.x * r, lb.y * r);
+            ctx.rotate(lb.rot);
             ctx.beginPath();
-            ctx.ellipse(rx * r * 0.85, r * 0.02, Math.abs(rx) < 0.2 ? r * 0.26 : r * 0.34, r * 0.98, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(122, 34, 5, 0.34)';
-            ctx.lineWidth = Math.max(2, r * 0.032);
+            ctx.ellipse(0, 0, lb.rx * r, lb.ry * r, 0, 0, Math.PI * 2);
+
+            const g = ctx.createRadialGradient(-lb.rx * r * 0.26, -lb.ry * r * 0.28, r * 0.04, 0, 0, lb.ry * r * 1.05);
+            g.addColorStop(0, lb.c0);
+            g.addColorStop(0.42, lb.c1);
+            g.addColorStop(0.82, lb.c2);
+            g.addColorStop(1, lb.c3);
+            ctx.fillStyle = g;
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(105, 25, 4, 0.58)';
+            ctx.lineWidth = Math.max(1.8, r * 0.028);
             ctx.stroke();
 
-            // Мягкий объёмный подсвет каждого сегмента
+            // Мягкий верхний глянец на каждой дольке
             ctx.beginPath();
-            ctx.ellipse(rx * r * 0.85 - r * 0.06, -r * 0.06, r * 0.14, r * 0.72, 0, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 224, 150, 0.11)';
+            ctx.ellipse(-lb.rx * r * 0.22, -lb.ry * r * 0.36, lb.rx * r * 0.26, lb.ry * r * 0.16, -0.22, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
             ctx.fill();
+            ctx.restore();
         });
-        ctx.restore();
 
-        // Чёткий тёплый внешний контур
+        // Углубление под хвостиком сверху
         ctx.beginPath();
-        ctx.ellipse(0, r * 0.02, r * 0.99, r * 0.97, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = '#7a2205';
-        ctx.lineWidth = Math.max(2.2, r * 0.038);
+        ctx.ellipse(0, -r * 0.83, r * 0.20, r * 0.075, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(92, 22, 4, 0.55)';
+        ctx.fill();
+
+        // Скульптурная деревянная плодоножка с ребристой корой (внутри ±1.13*r)
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.12, -r * 0.82);
+        ctx.quadraticCurveTo(-r * 0.09, -r * 0.99, -r * 0.03, -r * 1.09);
+        ctx.quadraticCurveTo(r * 0.08, -r * 1.13, r * 0.13, -r * 1.06);
+        ctx.quadraticCurveTo(r * 0.07, -r * 0.95, r * 0.12, -r * 0.82);
+        ctx.quadraticCurveTo(0, -r * 0.78, -r * 0.12, -r * 0.82);
+        ctx.closePath();
+        const stemGrad = ctx.createLinearGradient(-r * 0.12, -r * 0.95, r * 0.12, -r * 0.95);
+        stemGrad.addColorStop(0, '#4e342e');
+        stemGrad.addColorStop(0.45, '#795548');
+        stemGrad.addColorStop(1, '#3e2723');
+        ctx.fillStyle = stemGrad;
+        ctx.fill();
+        ctx.strokeStyle = '#2b1812';
+        ctx.lineWidth = Math.max(1.5, r * 0.024);
         ctx.stroke();
 
-        // Глянцевый блик
+        // Зелёный листик у основания стебля
         ctx.beginPath();
-        ctx.ellipse(-r * 0.32, -r * 0.34, r * 0.34, r * 0.17, -Math.PI / 5, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+        ctx.moveTo(-r * 0.07, -r * 0.86);
+        ctx.quadraticCurveTo(-r * 0.30, -r * 0.99, -r * 0.38, -r * 0.84);
+        ctx.quadraticCurveTo(-r * 0.24, -r * 0.76, -r * 0.07, -r * 0.86);
+        ctx.fillStyle = '#558b2f';
         ctx.fill();
+        ctx.strokeStyle = '#33691e';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
 
-        // Деревянный стебель и усик сверху (аккуратно до -1.09*r)
+        // Вьющийся зелёный усик справа
         ctx.beginPath();
-        ctx.moveTo(-r * 0.09, -r * 0.90);
-        ctx.bezierCurveTo(-r * 0.11, -r * 1.07, r * 0.16, -r * 1.08, r * 0.12, -r * 1.12);
-        ctx.bezierCurveTo(r * 0.05, -r * 1.14, -r * 0.03, -r * 1.05, 0.04 * r, -r * 0.90);
-        ctx.fillStyle = '#4e342e';
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(r * 0.22, -r * 0.96, r * 0.12, 0, Math.PI * 1.45);
-        ctx.lineWidth = Math.max(2, r * 0.035);
+        ctx.moveTo(r * 0.08, -r * 0.89);
+        ctx.bezierCurveTo(r * 0.26, -r * 1.06, r * 0.36, -r * 0.88, r * 0.22, -r * 0.83);
+        ctx.bezierCurveTo(r * 0.15, -r * 0.81, r * 0.16, -r * 0.90, r * 0.26, -r * 0.93);
+        ctx.lineWidth = Math.max(2, r * 0.032);
+        ctx.lineCap = 'round';
         ctx.strokeStyle = '#689f38';
         ctx.stroke();
+        ctx.restore();
 
         ctx.restore();
     }
 
-    // 6. ПУЗАТАЯ БАНКА С ОГУРЦАМИ (круглое пузо ±0.97*r + крышка до -0.99*r, БЕЗ воздушного купола!)
+    // 6. КЛАССИЧЕСКАЯ СТЕКЛЯННАЯ БАНКА С ОГУРЦАМИ (точно под прямоугольный скруглённый хитбокс ±0.88*r x ±0.86*r)
     drawPickleJar(ctx, r) {
         ctx.save();
-        const cyJar = r * 0.03;
-        const rJar = r * 0.965;
+        const w = r * 0.88;
+        const bodyTop = -r * 0.72;
+        const bodyH = r * 1.58; // до +0.86*r
 
-        // 1. Внешнее стекло + рассол в форме пузатого бочонка
+        // 1. Внутренний рассол в стеклянной банке
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar, 0, Math.PI * 2);
-        const brineGrad = ctx.createRadialGradient(-r * 0.25, -r * 0.2, r * 0.15, 0, cyJar, rJar);
+        ctx.roundRect(-w, bodyTop, w * 2, bodyH, [12, 12, 28, 28]);
+        const brineGrad = ctx.createLinearGradient(0, bodyTop, 0, bodyTop + bodyH);
         brineGrad.addColorStop(0, '#dcedc8');
         brineGrad.addColorStop(0.55, '#aed581');
-        brineGrad.addColorStop(1, '#558b2f');
+        brineGrad.addColorStop(1, '#689f38');
         ctx.fillStyle = brineGrad;
         ctx.fill();
 
-        // 2. Внутренние огурчики и специи строго внутри круглого стекла
+        // 2. Огурчики и специи строго внутри стекла
         ctx.save();
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar * 0.96, 0, Math.PI * 2);
+        ctx.roundRect(-w * 0.96, bodyTop + 3, w * 1.92, bodyH - 6, [10, 10, 26, 26]);
         ctx.clip();
 
         const jarPickles = [
-            { x: -r * 0.44, y: r * 0.18, rot: -0.38, len: r * 0.62 },
-            { x: r * 0.42, y: r * 0.16, rot: 0.34, len: r * 0.60 },
-            { x: -r * 0.04, y: r * 0.38, rot: 0.08, len: r * 0.64 },
-            { x: -r * 0.28, y: -r * 0.22, rot: 0.22, len: r * 0.52 },
-            { x: r * 0.26, y: -r * 0.18, rot: -0.25, len: r * 0.54 }
+            { x: -r * 0.42, y: r * 0.24, rot: -0.36, len: r * 0.56 },
+            { x: r * 0.40, y: r * 0.22, rot: 0.34, len: r * 0.54 },
+            { x: -r * 0.04, y: r * 0.36, rot: 0.05, len: r * 0.58 },
+            { x: -r * 0.28, y: -r * 0.20, rot: 0.20, len: r * 0.48 },
+            { x: r * 0.25, y: -r * 0.16, rot: -0.24, len: r * 0.50 }
         ];
 
         jarPickles.forEach(p => {
@@ -540,15 +565,15 @@ class SpriteRenderer {
             ctx.stroke();
             ctx.fillStyle = '#7cb342';
             ctx.beginPath();
-            ctx.arc(-r * 0.04, -p.len * 0.22, r * 0.038, 0, Math.PI * 2);
-            ctx.arc(r * 0.04, p.len * 0.12, r * 0.038, 0, Math.PI * 2);
+            ctx.arc(-r * 0.04, -p.len * 0.2, r * 0.038, 0, Math.PI * 2);
+            ctx.arc(r * 0.04, p.len * 0.1, r * 0.038, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         });
 
         // Горошины перца и укропный зонтик
         ctx.fillStyle = '#263238';
-        [[-r * 0.48, r * 0.62], [r * 0.46, r * 0.58], [0, r * 0.78], [r * 0.12, -r * 0.34]].forEach(([px, py]) => {
+        [[-r * 0.48, r * 0.62], [r * 0.48, r * 0.58], [0, r * 0.72], [r * 0.14, -r * 0.36]].forEach(([px, py]) => {
             ctx.beginPath();
             ctx.arc(px, py, r * 0.042, 0, Math.PI * 2);
             ctx.fill();
@@ -557,44 +582,46 @@ class SpriteRenderer {
         ctx.strokeStyle = '#9e9d24';
         ctx.lineWidth = 1.6;
         ctx.beginPath();
-        ctx.moveTo(r * 0.08, -r * 0.36);
+        ctx.moveTo(r * 0.1, -r * 0.42);
         for (let a = -0.8; a <= 0.8; a += 0.4) {
-            ctx.lineTo(r * 0.08 + Math.sin(a) * r * 0.26, -r * 0.36 - Math.cos(a) * r * 0.2);
-            ctx.moveTo(r * 0.08, -r * 0.36);
+            ctx.lineTo(r * 0.1 + Math.sin(a) * r * 0.26, -r * 0.42 - Math.cos(a) * r * 0.18);
+            ctx.moveTo(r * 0.1, -r * 0.42);
         }
         ctx.stroke();
         ctx.restore();
 
-        // 3. Изогнутый стеклянный блик на пузатом боку
+        // 3. Стеклянные блики на стенках банки
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar * 0.87, Math.PI * 0.74, Math.PI * 1.24);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
+        ctx.moveTo(-w + r * 0.13, bodyTop + r * 0.12);
+        ctx.lineTo(-w + r * 0.13, bodyTop + bodyH - r * 0.18);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.76)';
         ctx.lineWidth = r * 0.085;
         ctx.lineCap = 'round';
         ctx.stroke();
 
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar * 0.76, Math.PI * 0.82, Math.PI * 1.18);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.36)';
+        ctx.moveTo(-w + r * 0.25, bodyTop + r * 0.25);
+        ctx.lineTo(-w + r * 0.25, bodyTop + bodyH - r * 0.30);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
         ctx.lineWidth = r * 0.032;
         ctx.stroke();
 
         // 4. Контур стекла
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar, 0, Math.PI * 2);
+        ctx.roundRect(-w, bodyTop, w * 2, bodyH, [12, 12, 28, 28]);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.78)';
         ctx.lineWidth = 3.2;
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar + 1.5, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(46, 85, 48, 0.55)';
-        ctx.lineWidth = 1.8;
+        ctx.roundRect(-w - 1, bodyTop - 1, w * 2 + 2, bodyH + 2, [13, 13, 29, 29]);
+        ctx.strokeStyle = 'rgba(46, 85, 48, 0.5)';
+        ctx.lineWidth = 1.6;
         ctx.stroke();
 
         // 5. Винтажная этикетка "ОГУРЧИКИ"
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(-r * 0.54, -r * 0.06, r * 1.08, r * 0.36, 5);
+        ctx.roundRect(-r * 0.54, -r * 0.12, r * 1.08, r * 0.36, 5);
         ctx.fillStyle = '#fff9c4';
         ctx.fill();
         ctx.strokeStyle = '#8d6e63';
@@ -604,37 +631,38 @@ class SpriteRenderer {
         ctx.font = `bold ${Math.round(r * 0.15)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('ОГУРЧИКИ', 0, r * 0.12);
+        ctx.fillText('ОГУРЧИКИ', 0, r * 0.06);
         ctx.restore();
 
-        // 6. Крышка с салфеткой прямо поверх макушки банки (до -0.99*r)
+        // 6. Классическая крышка с салфеткой вверху банки (ровно до -0.86*r)
         this.drawJarLid(ctx, r, '#e53935', false);
 
         ctx.restore();
     }
 
-    // 7. ЗОЛОТАЯ БАНКА ВАРЕНЬЯ (пузатая круглая форма ±0.97*r)
+    // 7. КЛАССИЧЕСКАЯ ЗОЛОТАЯ БАНКА ВАРЕНЬЯ (точно под прямоугольный скруглённый хитбокс ±0.88*r x ±0.86*r)
     drawGoldenJar(ctx, r) {
         ctx.save();
-        const cyJar = r * 0.03;
-        const rJar = r * 0.965;
+        const w = r * 0.88;
+        const bodyTop = -r * 0.72;
+        const bodyH = r * 1.58; // до +0.86*r
 
-        // Внешнее мягкое золотое свечение в пределах холста
+        // Внешнее мягкое золотое свечение (в пределах холста)
         ctx.save();
-        const glowGrad = ctx.createRadialGradient(0, cyJar, r * 0.72, 0, cyJar, r * 1.12);
-        glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.45)');
-        glowGrad.addColorStop(0.7, 'rgba(255, 179, 0, 0.2)');
+        const glowGrad = ctx.createRadialGradient(0, 0, r * 0.65, 0, 0, r * 1.12);
+        glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.42)');
+        glowGrad.addColorStop(0.7, 'rgba(255, 179, 0, 0.18)');
         glowGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
         ctx.fillStyle = glowGrad;
         ctx.beginPath();
-        ctx.arc(0, cyJar, r * 1.12, 0, Math.PI * 2);
+        ctx.arc(0, 0, r * 1.12, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
         // Стеклянный корпус с малиновым вареньем
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar, 0, Math.PI * 2);
-        const jamGrad = ctx.createRadialGradient(-r * 0.24, -r * 0.2, r * 0.12, 0, cyJar, rJar);
+        ctx.roundRect(-w, bodyTop, w * 2, bodyH, [12, 12, 28, 28]);
+        const jamGrad = ctx.createLinearGradient(0, bodyTop, 0, bodyTop + bodyH);
         jamGrad.addColorStop(0, '#ff4081');
         jamGrad.addColorStop(0.45, '#c2185b');
         jamGrad.addColorStop(0.85, '#880e4f');
@@ -645,35 +673,36 @@ class SpriteRenderer {
         // Ягодки малины внутри варенья
         ctx.save();
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar * 0.96, 0, Math.PI * 2);
+        ctx.roundRect(-w * 0.96, bodyTop + 3, w * 1.92, bodyH - 6, [10, 10, 26, 26]);
         ctx.clip();
         ctx.fillStyle = '#ff80ab';
-        [[-r * 0.4, -r * 0.1], [r * 0.36, 0], [0, r * 0.38], [-r * 0.28, r * 0.56], [r * 0.32, r * 0.58], [0, -r * 0.34]].forEach(([bx, by]) => {
+        [[-r * 0.38, -r * 0.16], [r * 0.34, -r * 0.04], [0, r * 0.34], [-r * 0.28, r * 0.54], [r * 0.32, r * 0.56], [0, -r * 0.36]].forEach(([bx, by]) => {
             ctx.beginPath();
-            ctx.arc(bx, by, r * 0.1, 0, Math.PI * 2);
+            ctx.arc(bx, by, r * 0.095, 0, Math.PI * 2);
             ctx.fill();
         });
         ctx.restore();
 
-        // Изогнутый блик
+        // Стеклянный блик
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar * 0.87, Math.PI * 0.74, Math.PI * 1.24);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.86)';
+        ctx.moveTo(-w + r * 0.13, bodyTop + r * 0.12);
+        ctx.lineTo(-w + r * 0.13, bodyTop + bodyH - r * 0.18);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
         ctx.lineWidth = r * 0.085;
         ctx.lineCap = 'round';
         ctx.stroke();
 
-        // Золотая окантовка
+        // Золотая окантовка стекла
         ctx.beginPath();
-        ctx.arc(0, cyJar, rJar, 0, Math.PI * 2);
+        ctx.roundRect(-w, bodyTop, w * 2, bodyH, [12, 12, 28, 28]);
         ctx.strokeStyle = '#ffd700';
-        ctx.lineWidth = 3.6;
+        ctx.lineWidth = 3.5;
         ctx.stroke();
 
         // Золотая табличка
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(-r * 0.62, -r * 0.08, r * 1.24, r * 0.38, 6);
+        ctx.roundRect(-r * 0.62, -r * 0.12, r * 1.24, r * 0.38, 6);
         const goldGrad = ctx.createLinearGradient(-r * 0.62, 0, r * 0.62, 0);
         goldGrad.addColorStop(0, '#ffd700');
         goldGrad.addColorStop(0.5, '#fff9c4');
@@ -688,40 +717,40 @@ class SpriteRenderer {
         ctx.font = `900 ${Math.round(r * 0.15)}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('★ ДЖЕКПОТ ★', 0, r * 0.11);
+        ctx.fillText('★ ДЖЕКПОТ ★', 0, r * 0.07);
         ctx.restore();
 
-        // Золотая крышка-салфетка вровень с верхом хитбокса
+        // Золотая крышка-салфетка (ровно до -0.86*r)
         this.drawJarLid(ctx, r, '#ffd700', true);
 
         // Искры внутри безопасной границы
-        this.drawSparkle(ctx, -r * 0.74, -r * 0.56, r * 0.19);
-        this.drawSparkle(ctx, r * 0.76, -r * 0.45, r * 0.21);
-        this.drawSparkle(ctx, r * 0.68, r * 0.56, r * 0.17);
-        this.drawSparkle(ctx, -r * 0.68, r * 0.62, r * 0.15);
+        this.drawSparkle(ctx, -r * 0.72, -r * 0.52, r * 0.18);
+        this.drawSparkle(ctx, r * 0.74, -r * 0.42, r * 0.20);
+        this.drawSparkle(ctx, r * 0.68, r * 0.56, r * 0.16);
+        this.drawSparkle(ctx, -r * 0.68, r * 0.60, r * 0.15);
 
         ctx.restore();
     }
 
-    // Крышка круглой банки-бочонка (сидит чётко от -0.99*r до -0.60*r)
+    // Крышка классической банки с салфеткой и бечёвкой (верх чётко на -0.86*r)
     drawJarLid(ctx, r, capColor, isGold = false) {
         ctx.save();
-        const capW = r * 0.72;
-        const capTop = -r * 0.97;
-        const capSkirt = -r * 0.60;
+        const capW = r * 0.85;
+        const capTop = -r * 0.85;
+        const capSkirt = -r * 0.52;
 
         ctx.beginPath();
-        ctx.moveTo(-capW * 0.82, -r * 0.85);
-        ctx.quadraticCurveTo(0, capTop - r * 0.04, capW * 0.82, -r * 0.85);
-        ctx.lineTo(capW * 1.02, capSkirt);
+        ctx.moveTo(-capW * 0.92, -r * 0.74);
+        ctx.quadraticCurveTo(0, capTop - r * 0.04, capW * 0.92, -r * 0.74);
+        ctx.lineTo(capW * 1.04, capSkirt);
 
         // Волнистая юбочка салфетки
         const frills = 8;
-        const step = (capW * 2.04) / frills;
+        const step = (capW * 2.08) / frills;
         for (let i = 0; i < frills; i++) {
-            const startX = capW * 1.02 - i * step;
+            const startX = capW * 1.04 - i * step;
             const endX = startX - step;
-            ctx.quadraticCurveTo(startX - step / 2, capSkirt + r * 0.09, endX, capSkirt);
+            ctx.quadraticCurveTo(startX - step / 2, capSkirt + r * 0.085, endX, capSkirt);
         }
         ctx.closePath();
 
@@ -735,11 +764,11 @@ class SpriteRenderer {
             ctx.lineWidth = 2.4;
             for (let x = -capW * 1.1; x <= capW * 1.1; x += r * 0.13) {
                 ctx.beginPath();
-                ctx.moveTo(x, -r * 1.04);
+                ctx.moveTo(x, -r * 0.92);
                 ctx.lineTo(x, capSkirt + r * 0.12);
                 ctx.stroke();
             }
-            for (let y = -r * 1.04; y <= capSkirt + r * 0.12; y += r * 0.13) {
+            for (let y = -r * 0.92; y <= capSkirt + r * 0.12; y += r * 0.13) {
                 ctx.beginPath();
                 ctx.moveTo(-capW * 1.1, y);
                 ctx.lineTo(capW * 1.1, y);
@@ -756,7 +785,7 @@ class SpriteRenderer {
         // Бечёвка с бантиком
         const ropeY = capSkirt - r * 0.08;
         ctx.beginPath();
-        ctx.ellipse(0, ropeY, capW * 0.9, r * 0.045, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, ropeY, capW * 0.95, r * 0.045, 0, 0, Math.PI * 2);
         ctx.strokeStyle = isGold ? '#d84315' : '#6d4c41';
         ctx.lineWidth = r * 0.05;
         ctx.stroke();
