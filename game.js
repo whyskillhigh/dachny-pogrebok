@@ -100,13 +100,23 @@
         }
     }
 
-    // --- GAME JUICE: 3. Сочные партиклы (Брызги рассола и золотые искры) ---
+    // --- GAME JUICE: 3. Сочные партиклы и ударные кольца ---
     class ParticleSystem {
         constructor() {
             this.particles = [];
+            this.rings = [];
         }
 
-        spawnMergeBurst(x, y, color = '#ffd700', count = 22, maxSpeed = 5.5) {
+        spawnMergeBurst(x, y, color = '#ffd700', count = 22, maxSpeed = 5.5, ringMaxR = 48) {
+            this.rings.push({
+                x,
+                y,
+                r: Math.max(8, ringMaxR * 0.22),
+                maxR: ringMaxR,
+                alpha: 0.85,
+                color
+            });
+
             for (let i = 0; i < count; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 const speed = 1.8 + Math.random() * maxSpeed;
@@ -127,6 +137,25 @@
         }
 
         updateAndDraw(ctx, dt = 1 / 60) {
+            // Ударные световые кольца слияния
+            for (let i = this.rings.length - 1; i >= 0; i--) {
+                const ring = this.rings[i];
+                ring.r += (ring.maxR - ring.r) * Math.min(1, 14 * dt);
+                ring.alpha -= 2.6 * dt;
+                if (ring.alpha <= 0.02) {
+                    this.rings.splice(i, 1);
+                    continue;
+                }
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, ring.alpha);
+                ctx.strokeStyle = ring.color;
+                ctx.lineWidth = Math.max(1.5, 5.5 * ring.alpha);
+                ctx.beginPath();
+                ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
             for (let i = this.particles.length - 1; i >= 0; i--) {
                 const p = this.particles[i];
                 p.x += p.vx;
@@ -250,10 +279,12 @@
     let isScoopMode = false;
     let rescueUsedThisRun = false;
 
-    // Таймер опасности (3 секунды)
+    // Таймер опасности (3 секунды) и фиксированный шаг физики (120 Гц)
     let dangerTime = 0;
     const DANGER_MAX_TIME = 3.0;
     let isDangerActive = false;
+    let physicsAccumulator = 0;
+    const FIXED_PHYSICS_STEP = 1 / 120;
 
     // Ссылки на элементы UI
     let scoreEl, bestScoreEl, dropBtn, soundBtn, musicBtn, dangerBannerEl, dangerProgressEl;
@@ -344,18 +375,21 @@
 
         engine = Engine.create({
             enableSleeping: false,
-            gravity: { x: 0, y: 1.4, scale: 0.001 }
+            positionIterations: 10,
+            velocityIterations: 8,
+            constraintIterations: 4,
+            gravity: { x: 0, y: 1.65, scale: 0.001 }
         });
         world = engine.world;
 
-        // Стенки банки
+        // Стенки банки со сверхнизким трением, чтобы плоды не "зависали" на стекле
         const wallThickness = 60;
         const leftWall = Bodies.rectangle(
             JAR_LEFT - wallThickness / 2,
             (JAR_TOP + JAR_BOTTOM) / 2,
             wallThickness,
             JAR_BOTTOM - JAR_TOP + 40,
-            { isStatic: true, friction: 0.08, restitution: 0.2 }
+            { isStatic: true, friction: 0.008, frictionStatic: 0.01, restitution: 0.12, slop: 0.01 }
         );
 
         const rightWall = Bodies.rectangle(
@@ -363,7 +397,7 @@
             (JAR_TOP + JAR_BOTTOM) / 2,
             wallThickness,
             JAR_BOTTOM - JAR_TOP + 40,
-            { isStatic: true, friction: 0.08, restitution: 0.2 }
+            { isStatic: true, friction: 0.008, frictionStatic: 0.01, restitution: 0.12, slop: 0.01 }
         );
 
         const floor = Bodies.rectangle(
@@ -371,35 +405,72 @@
             JAR_BOTTOM + wallThickness / 2,
             WIDTH,
             wallThickness,
-            { isStatic: true, friction: 0.2, restitution: 0.18 }
+            { isStatic: true, friction: 0.06, frictionStatic: 0.08, restitution: 0.10, slop: 0.01 }
         );
 
-        // Скосы на дне для плавного перекатывания плодов
-        const cornerLeft = Bodies.rectangle(
-            JAR_LEFT + 8,
-            JAR_BOTTOM - 6,
-            24,
-            24,
-            { isStatic: true, angle: Math.PI / 4, friction: 0.1 }
-        );
-        const cornerRight = Bodies.rectangle(
-            JAR_RIGHT - 8,
-            JAR_BOTTOM - 6,
-            24,
-            24,
-            { isStatic: true, angle: -Math.PI / 4, friction: 0.1 }
-        );
+        // Плавные дугообразные скругления дна банки (радиус 36px, точно по стеклу)
+        const cornerBodies = [];
+        const arcR = 36;
+        const blockHalf = 10;
+        [
+            { cx: JAR_LEFT + arcR, cy: JAR_BOTTOM - arcR, start: Math.PI / 2, end: Math.PI },
+            { cx: JAR_RIGHT - arcR, cy: JAR_BOTTOM - arcR, start: 0, end: Math.PI / 2 }
+        ].forEach((c) => {
+            [0.25, 0.5, 0.75].forEach((t) => {
+                const a = c.start + (c.end - c.start) * t;
+                const bx = c.cx + Math.cos(a) * (arcR + blockHalf);
+                const by = c.cy + Math.sin(a) * (arcR + blockHalf);
+                cornerBodies.push(Bodies.rectangle(bx, by, 22, blockHalf * 2, {
+                    isStatic: true,
+                    angle: a + Math.PI / 2,
+                    friction: 0.01,
+                    frictionStatic: 0.01,
+                    restitution: 0.10,
+                    slop: 0.01
+                }));
+            });
+        });
 
-        World.add(world, [leftWall, rightWall, floor, cornerLeft, cornerRight]);
+        World.add(world, [leftWall, rightWall, floor, ...cornerBodies]);
 
-        // Обработка соударений для звука и эффекта Squash & Stretch
+        // Обработка соударений (звук и сплющивание на start; слияние на start и active)
         Matter.Events.on(engine, 'collisionStart', function (event) {
             const pairs = event.pairs;
             for (let i = 0; i < pairs.length; i++) {
-                const pair = pairs[i];
-                handleCollision(pair.bodyA, pair.bodyB);
+                handleCollision(pairs[i].bodyA, pairs[i].bodyB, true);
             }
         });
+
+        Matter.Events.on(engine, 'collisionActive', function (event) {
+            const pairs = event.pairs;
+            for (let i = 0; i < pairs.length; i++) {
+                handleCollision(pairs[i].bodyA, pairs[i].bodyB, false);
+            }
+        });
+    }
+
+    function createFruitBody(x, y, tier, opts = {}) {
+        const radius = FRUIT_DEFS[tier].radius;
+        const clampedX = Math.min(Math.max(x, JAR_LEFT + radius + 2), JAR_RIGHT - radius - 2);
+        const clampedY = Math.min(y, JAR_BOTTOM - radius - 2);
+
+        const body = Matter.Bodies.circle(clampedX, clampedY, radius, {
+            restitution: 0.14,
+            friction: 0.025,
+            frictionStatic: 0.035,
+            frictionAir: 0.005,
+            slop: 0.01,
+            density: 0.0018 + tier * 0.00035,
+            fruitTier: tier,
+            spawnTime: performance.now()
+        });
+
+        body.juice = new FruitJuice();
+        body.juice.spawnScale = opts.spawnScale !== undefined ? opts.spawnScale : 1.0;
+        if (opts.squash) {
+            body.juice.triggerSquash(opts.squash);
+        }
+        return body;
     }
 
     function getRandomSpawnTier() {
@@ -444,20 +515,7 @@
         if (!canDrop || isGameOver || isPaused) return;
 
         canDrop = false;
-        const radius = FRUIT_DEFS[currentTier].radius;
-        const spawnX = Math.min(Math.max(aimX, JAR_LEFT + radius + 4), JAR_RIGHT - radius - 4);
-
-        const body = Matter.Bodies.circle(spawnX, DROP_Y, radius, {
-            restitution: 0.22,
-            friction: 0.15,
-            density: 0.002,
-            fruitTier: currentTier,
-            spawnTime: performance.now()
-        });
-
-        // Прикрепляем модуль сока и сплющивания
-        body.juice = new FruitJuice();
-        body.juice.spawnScale = 1.0; // Сброшенный плод не масштабируется из нуля
+        const body = createFruitBody(aimX, DROP_Y, currentTier, { spawnScale: 1.0 });
 
         Matter.World.add(world, body);
         fruits.push(body);
@@ -475,19 +533,21 @@
     }
 
     // Обработка соударений и слияний
-    function handleCollision(bodyA, bodyB) {
-        const maxSpd = Math.max(bodyA.speed || 0, bodyB.speed || 0);
+    function handleCollision(bodyA, bodyB, isStart = true) {
+        if (isStart) {
+            const maxSpd = Math.max(bodyA.speed || 0, bodyB.speed || 0);
 
-        // Звук глухого удара о дно/стенки/плоды
-        if (maxSpd > 1.0) {
-            window.soundEffects.playDrop(maxSpd);
-        }
+            // Звук глухого удара о дно/стенки/плоды
+            if (maxSpd > 1.0) {
+                window.soundEffects.playDrop(maxSpd);
+            }
 
-        // GAME JUICE: Активируем Squash & Stretch при сильном ударе
-        if (maxSpd > 1.2) {
-            const squashAmt = Math.min(maxSpd * 0.045, 0.32);
-            if (bodyA.juice) bodyA.juice.triggerSquash(squashAmt);
-            if (bodyB.juice) bodyB.juice.triggerSquash(squashAmt);
+            // GAME JUICE: Активируем Squash & Stretch при сильном ударе
+            if (maxSpd > 1.2) {
+                const squashAmt = Math.min(maxSpd * 0.045, 0.32);
+                if (bodyA.juice) bodyA.juice.triggerSquash(squashAmt);
+                if (bodyB.juice) bodyB.juice.triggerSquash(squashAmt);
+            }
         }
 
         if (bodyA.fruitTier === undefined || bodyB.fruitTier === undefined) return;
@@ -495,79 +555,103 @@
 
         // Если плоды одного уровня — производим слияние!
         if (bodyA.fruitTier === bodyB.fruitTier) {
-            const tier = bodyA.fruitTier;
-            bodyA.isMerging = true;
-            bodyB.isMerging = true;
+            mergeFruits(bodyA, bodyB);
+        }
+    }
 
-            const midX = (bodyA.position.x + bodyB.position.x) / 2;
-            const midY = (bodyA.position.y + bodyB.position.y) / 2;
+    function mergeFruits(bodyA, bodyB) {
+        if (!bodyA || !bodyB || bodyA.isMerging || bodyB.isMerging) return;
+        if (bodyA.fruitTier === undefined || bodyA.fruitTier !== bodyB.fruitTier) return;
 
-            // Двойной золотой джекпот
-            if (tier === 7) {
-                mergeGoldenJackpots(bodyA, bodyB, midX, midY);
-                return;
+        const tier = bodyA.fruitTier;
+        bodyA.isMerging = true;
+        bodyB.isMerging = true;
+
+        const midX = (bodyA.position.x + bodyB.position.x) / 2;
+        const midY = (bodyA.position.y + bodyB.position.y) / 2;
+
+        // Двойной золотой джекпот
+        if (tier === 7) {
+            mergeGoldenJackpots(bodyA, bodyB, midX, midY);
+            return;
+        }
+
+        const nextT = tier + 1;
+        const nextRadius = FRUIT_DEFS[nextT].radius;
+        const points = FRUIT_DEFS[nextT].score;
+        addScore(points);
+
+        // ЗВУК: ASMR Vacuum Cork Pop с гармонической пентатоникой
+        window.soundEffects.playMerge(nextT);
+
+        // GAME JUICE: Тряска экрана в зависимости от ранга плода
+        const shakeTrauma = [0.08, 0.12, 0.18, 0.28, 0.42, 0.60, 0.85, 1.0][nextT] || 0.1;
+        screenShake.addTrauma(shakeTrauma);
+
+        // GAME JUICE: Всплывающие пружинящие цифры очков
+        scorePopups.add(midX, midY - 15, `+${points}`, FRUIT_DEFS[nextT].color, nextT >= 5 ? 28 : 22);
+
+        // GAME JUICE: Взрыв сочных партиклов и ударная волна
+        particleSys.spawnMergeBurst(midX, midY, FRUIT_DEFS[nextT].color, nextT >= 6 ? 36 : 22, 5.5, nextRadius * 1.45);
+
+        if (nextT === 6) {
+            totalJarsCrafted++;
+            if (bridge) {
+                bridge.saveCloudProgress('jars_count', totalJarsCrafted);
+            } else {
+                localStorage.setItem('dacha_jars_count', totalJarsCrafted);
             }
-
-            const nextT = tier + 1;
-            const points = FRUIT_DEFS[nextT].score;
-            addScore(points);
-
-            // ЗВУК: ASMR Vacuum Cork Pop с гармонической пентатоникой
-            window.soundEffects.playMerge(nextT);
-
-            // GAME JUICE: Тряска экрана в зависимости от ранга плода
-            const shakeTrauma = [0.08, 0.12, 0.18, 0.28, 0.42, 0.60, 0.85, 1.0][nextT] || 0.1;
-            screenShake.addTrauma(shakeTrauma);
-
-            // GAME JUICE: Всплывающие пружинящие цифры очков
-            scorePopups.add(midX, midY - 15, `+${points}`, FRUIT_DEFS[nextT].color, nextT >= 5 ? 28 : 22);
-
-            // GAME JUICE: Взрыв сочных партиклов
-            particleSys.spawnMergeBurst(midX, midY, FRUIT_DEFS[nextT].color, nextT >= 6 ? 36 : 22);
-
-            if (nextT === 6) {
-                totalJarsCrafted++;
-                if (bridge) {
-                    bridge.saveCloudProgress('jars_count', totalJarsCrafted);
-                } else {
-                    localStorage.setItem('dacha_jars_count', totalJarsCrafted);
-                }
-                window.soundEffects.playJarSuccess();
-                triggerJarCelebration(midX, midY, 'Закатана банка огурцов!');
-            } else if (nextT === 7) {
-                totalJarsCrafted++;
-                if (bridge) {
-                    bridge.saveCloudProgress('jars_count', totalJarsCrafted);
-                } else {
-                    localStorage.setItem('dacha_jars_count', totalJarsCrafted);
-                }
-                window.soundEffects.playJackpot();
-                triggerJarCelebration(midX, midY, 'ЗОЛОТОЙ ДЖЕКПОТ!', true);
+            window.soundEffects.playJarSuccess();
+            triggerJarCelebration(midX, midY, 'Закатана банка огурцов!');
+        } else if (nextT === 7) {
+            totalJarsCrafted++;
+            if (bridge) {
+                bridge.saveCloudProgress('jars_count', totalJarsCrafted);
+            } else {
+                localStorage.setItem('dacha_jars_count', totalJarsCrafted);
             }
+            window.soundEffects.playJackpot();
+            triggerJarCelebration(midX, midY, 'ЗОЛОТОЙ ДЖЕКПОТ!', true);
+        }
 
-            // Удаляем старые тела
-            Matter.World.remove(world, [bodyA, bodyB]);
-            fruits = fruits.filter(f => f !== bodyA && f !== bodyB);
+        // Удаляем старые тела
+        Matter.World.remove(world, [bodyA, bodyB]);
+        fruits = fruits.filter(f => f !== bodyA && f !== bodyB);
 
-            // Создаем новый плод на месте слияния
-            const nextRadius = FRUIT_DEFS[nextT].radius;
-            const newBody = Matter.Bodies.circle(midX, midY, nextRadius, {
-                restitution: 0.25,
-                friction: 0.12,
-                density: 0.002,
-                fruitTier: nextT,
-                spawnTime: performance.now()
-            });
+        // Создаём новый плод с лёгким упругим отскоком, не разбрасывая соседей
+        const newBody = createFruitBody(midX, midY, nextT, { spawnScale: 0.35, squash: 0.25 });
+        Matter.Body.setVelocity(newBody, { x: (Math.random() - 0.5) * 0.6, y: -0.75 });
 
-            // GAME JUICE: Пружинный отскок и масштабирование
-            newBody.juice = new FruitJuice();
-            newBody.juice.spawnScale = 0.35;
-            newBody.juice.triggerSquash(0.25);
+        Matter.World.add(world, newBody);
+        fruits.push(newBody);
+    }
 
-            Matter.Body.setVelocity(newBody, { x: (Math.random() - 0.5) * 1.6, y: -2.4 });
+    // Гарантированное слияние близких/соприкасающихся близнецов + мягкий «магнитный поцелуй»
+    function checkProximityMerges() {
+        for (let i = 0; i < fruits.length; i++) {
+            const fA = fruits[i];
+            if (!fA || fA.isMerging) continue;
+            for (let j = i + 1; j < fruits.length; j++) {
+                const fB = fruits[j];
+                if (!fB || fB.isMerging) continue;
+                if (fA.fruitTier !== fB.fruitTier) continue;
 
-            Matter.World.add(world, newBody);
-            fruits.push(newBody);
+                const dx = fB.position.x - fA.position.x;
+                const dy = fB.position.y - fA.position.y;
+                const dist = Math.hypot(dx, dy);
+                const touchDist = fA.circleRadius + fB.circleRadius;
+
+                if (dist <= touchDist + 3.0) {
+                    mergeFruits(fA, fB);
+                    break;
+                } else if (dist < touchDist + 9.0 && dist > 0.001) {
+                    const pull = 0.00018 * (fA.mass + fB.mass);
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    Matter.Body.applyForce(fA, fA.position, { x: nx * pull, y: ny * pull });
+                    Matter.Body.applyForce(fB, fB.position, { x: -nx * pull, y: -ny * pull });
+                }
+            }
         }
     }
 
@@ -608,9 +692,17 @@
         particleSys.spawnMergeBurst(WIDTH / 2, DANGER_Y + 50, isGold ? '#ffd700' : '#81c784', 45, 6.0);
     }
 
-    // Обновление физики и анимаций
+    // Обновление физики и анимаций (фиксированный подшаг 120 Гц + магнитное слияние)
     function update(dt) {
-        Matter.Engine.update(engine, dt * 1000);
+        physicsAccumulator += Math.min(dt, 0.05);
+        let substeps = 0;
+        while (physicsAccumulator >= FIXED_PHYSICS_STEP && substeps < 6) {
+            Matter.Engine.update(engine, FIXED_PHYSICS_STEP * 1000);
+            physicsAccumulator -= FIXED_PHYSICS_STEP;
+            substeps++;
+        }
+
+        checkProximityMerges();
 
         const now = performance.now();
 
@@ -858,30 +950,47 @@
         ctx.restore();
     }
 
+    function getAimLandingY(curX, radius) {
+        let targetY = JAR_BOTTOM - radius;
+        for (let i = 0; i < fruits.length; i++) {
+            const f = fruits[i];
+            const dx = Math.abs(f.position.x - curX);
+            const sumR = f.circleRadius + radius;
+            if (dx < sumR) {
+                const contactY = f.position.y - Math.sqrt(Math.max(0, sumR * sumR - dx * dx));
+                if (contactY < targetY && contactY > DROP_Y) {
+                    targetY = contactY;
+                }
+            }
+        }
+        return targetY;
+    }
+
     function drawAimingGuide() {
         if (!canDrop || isGameOver || isScoopMode) return;
 
         const radius = FRUIT_DEFS[currentTier].radius;
-        const curX = Math.min(Math.max(aimX, JAR_LEFT + radius + 4), JAR_RIGHT - radius - 4);
+        const curX = Math.min(Math.max(aimX, JAR_LEFT + radius + 2), JAR_RIGHT - radius - 2);
+        const landingY = getAimLandingY(curX, radius);
 
         ctx.save();
         ctx.setLineDash([4, 6]);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.strokeStyle = 'rgba(255, 248, 210, 0.38)';
         ctx.lineWidth = 2;
 
         ctx.beginPath();
         ctx.moveTo(curX, DROP_Y + radius + 2);
-        ctx.lineTo(curX, JAR_BOTTOM - 6);
+        ctx.lineTo(curX, Math.max(DROP_Y + radius + 4, landingY - radius));
         ctx.stroke();
 
-        ctx.setLineDash([]);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        // Тонкий призрачный силуэт точки приземления
         ctx.beginPath();
-        ctx.moveTo(curX, JAR_BOTTOM - 12);
-        ctx.lineTo(curX - 6, JAR_BOTTOM - 20);
-        ctx.lineTo(curX + 6, JAR_BOTTOM - 20);
-        ctx.closePath();
+        ctx.arc(curX, landingY, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 248, 210, 0.09)';
         ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 248, 210, 0.28)';
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
 
         ctx.restore();
     }
@@ -890,7 +999,7 @@
         if (!canDrop || isGameOver) return;
 
         const radius = FRUIT_DEFS[currentTier].radius;
-        const curX = Math.min(Math.max(aimX, JAR_LEFT + radius + 4), JAR_RIGHT - radius - 4);
+        const curX = Math.min(Math.max(aimX, JAR_LEFT + radius + 2), JAR_RIGHT - radius - 2);
         const bobbingY = DROP_Y + Math.sin(performance.now() * 0.005) * 3;
 
         const sprite = window.spriteRenderer.getSprite(currentTier);
@@ -909,7 +1018,7 @@
         }
     }
 
-    // GAME JUICE: Отрисовка плодов с деформацией Squash & Stretch
+    // GAME JUICE: Отрисовка плодов (мировая тень ДО поворота + Squash & Stretch)
     function drawFruits() {
         for (let i = 0; i < fruits.length; i++) {
             const body = fruits[i];
@@ -921,6 +1030,12 @@
 
             ctx.save();
             ctx.translate(body.position.x, body.position.y);
+
+            // Мягкая тень в мировых координатах (никогда не переворачивается вверх ногами)
+            ctx.beginPath();
+            ctx.arc(0, 3, def.radius * 0.96, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(24, 10, 3, 0.22)';
+            ctx.fill();
 
             if (isScoopMode) {
                 const pulse = 0.65 + Math.sin(performance.now() * 0.01) * 0.25;
@@ -1288,6 +1403,19 @@
             });
         });
 
+        ['ladderModal', 'shareModal'].forEach(id => {
+            const m = document.getElementById(id);
+            if (m) {
+                m.addEventListener('click', (e) => {
+                    if (e.target === m) {
+                        window.soundEffects.playClick();
+                        m.classList.add('hidden');
+                        if (!isGameOver) isPaused = false;
+                    }
+                });
+            }
+        });
+
         const copyShareBtn = document.getElementById('copyShareBtn');
         if (copyShareBtn) {
             copyShareBtn.addEventListener('click', copyShareText);
@@ -1438,18 +1566,29 @@
         modal.classList.remove('hidden');
     }
 
-    function copyShareText() {
+    async function copyShareText() {
         window.soundEffects.playClick();
         const shareTextarea = document.getElementById('shareText');
         if (!shareTextarea) return;
+
+        if (bridge && bridge.isSocialEnv && typeof bridge.sharePost === 'function') {
+            const posted = await bridge.sharePost(shareTextarea.value);
+            if (posted) {
+                bridge.showToast('Запись опубликована!');
+                return;
+            }
+        }
 
         shareTextarea.select();
         shareTextarea.setSelectionRange(0, 99999);
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(shareTextarea.value).then(showToast);
+            navigator.clipboard.writeText(shareTextarea.value).then(showToast).catch(() => {
+                try { document.execCommand('copy'); } catch (_) {}
+                showToast();
+            });
         } else {
-            document.execCommand('copy');
+            try { document.execCommand('copy'); } catch (_) {}
             showToast();
         }
     }
@@ -1471,6 +1610,12 @@
         shakeJar,
         activateScoopMode,
         triggerGameOver,
+        spawnTestFruit: (x, y, tier) => {
+            const body = createFruitBody(x, y, tier, { spawnScale: 1.0 });
+            Matter.World.add(world, body);
+            fruits.push(body);
+            return body;
+        },
         getState: () => ({
             score,
             highScore,
