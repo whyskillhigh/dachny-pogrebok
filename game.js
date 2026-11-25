@@ -451,20 +451,38 @@
 
     function createFruitBody(x, y, tier, opts = {}) {
         const radius = FRUIT_DEFS[tier].radius;
-        const clampedX = Math.min(Math.max(x, JAR_LEFT + radius + 2), JAR_RIGHT - radius - 2);
-        const clampedY = Math.min(y, JAR_BOTTOM - radius - 2);
+        const isJarBox = tier >= 6;
+        const halfW = isJarBox ? radius * 0.88 : radius;
+        const halfH = isJarBox ? radius * 0.86 : radius;
+        const clampedX = Math.min(Math.max(x, JAR_LEFT + halfW + 2), JAR_RIGHT - halfW - 2);
+        const clampedY = Math.min(y, JAR_BOTTOM - halfH - 2);
 
-        const body = Matter.Bodies.circle(clampedX, clampedY, radius, {
-            restitution: 0.14,
-            friction: 0.025,
-            frictionStatic: 0.035,
+        const commonOpts = {
             frictionAir: 0.005,
             slop: 0.01,
             density: 0.0018 + tier * 0.00035,
             fruitTier: tier,
             spawnTime: performance.now()
-        });
+        };
 
+        const body = isJarBox
+            ? Matter.Bodies.rectangle(clampedX, clampedY, halfW * 2, halfH * 2, {
+                ...commonOpts,
+                chamfer: { radius: Math.round(radius * 0.24) },
+                restitution: 0.08,
+                friction: 0.04,
+                frictionStatic: 0.06
+            })
+            : Matter.Bodies.circle(clampedX, clampedY, radius, {
+                ...commonOpts,
+                restitution: 0.14,
+                friction: 0.025,
+                frictionStatic: 0.035
+            });
+
+        body.isJarBox = isJarBox;
+        body.boundHalfW = halfW;
+        body.boundHalfH = halfH;
         body.juice = new FruitJuice();
         body.juice.spawnScale = opts.spawnScale !== undefined ? opts.spawnScale : 1.0;
         if (opts.squash) {
@@ -626,6 +644,43 @@
         fruits.push(newBody);
     }
 
+    function pointToSegmentDist(px, py, ax, ay, bx, by) {
+        const vx = bx - ax;
+        const vy = by - ay;
+        const lenSq = vx * vx + vy * vy;
+        const t = lenSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / lenSq)) : 0;
+        return Math.hypot(px - (ax + vx * t), py - (ay + vy * t));
+    }
+
+    function polygonSurfaceGap(vertsA, vertsB) {
+        for (let i = 0; i < vertsA.length; i++) {
+            if (Matter.Vertices.contains(vertsB, vertsA[i])) return 0;
+        }
+        for (let i = 0; i < vertsB.length; i++) {
+            if (Matter.Vertices.contains(vertsA, vertsB[i])) return 0;
+        }
+        let minDist = Infinity;
+        for (let i = 0; i < vertsA.length; i++) {
+            const p = vertsA[i];
+            for (let j = 0; j < vertsB.length; j++) {
+                const b1 = vertsB[j];
+                const b2 = vertsB[(j + 1) % vertsB.length];
+                const d = pointToSegmentDist(p.x, p.y, b1.x, b1.y, b2.x, b2.y);
+                if (d < minDist) minDist = d;
+            }
+        }
+        for (let i = 0; i < vertsB.length; i++) {
+            const p = vertsB[i];
+            for (let j = 0; j < vertsA.length; j++) {
+                const a1 = vertsA[j];
+                const a2 = vertsA[(j + 1) % vertsA.length];
+                const d = pointToSegmentDist(p.x, p.y, a1.x, a1.y, a2.x, a2.y);
+                if (d < minDist) minDist = d;
+            }
+        }
+        return minDist;
+    }
+
     // Гарантированное слияние близких/соприкасающихся близнецов + мягкий «магнитный поцелуй»
     function checkProximityMerges() {
         for (let i = 0; i < fruits.length; i++) {
@@ -639,17 +694,39 @@
                 const dx = fB.position.x - fA.position.x;
                 const dy = fB.position.y - fA.position.y;
                 const dist = Math.hypot(dx, dy);
-                const touchDist = fA.circleRadius + fB.circleRadius;
 
-                if (dist <= touchDist + 3.0) {
-                    mergeFruits(fA, fB);
-                    break;
-                } else if (dist < touchDist + 9.0 && dist > 0.001) {
-                    const pull = 0.00018 * (fA.mass + fB.mass);
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    Matter.Body.applyForce(fA, fA.position, { x: nx * pull, y: ny * pull });
-                    Matter.Body.applyForce(fB, fB.position, { x: -nx * pull, y: -ny * pull });
+                if (fA.isJarBox && fB.isJarBox) {
+                    if (
+                        fA.bounds.max.x + 10 < fB.bounds.min.x ||
+                        fB.bounds.max.x + 10 < fA.bounds.min.x ||
+                        fA.bounds.max.y + 10 < fB.bounds.min.y ||
+                        fB.bounds.max.y + 10 < fA.bounds.min.y
+                    ) {
+                        continue;
+                    }
+                    const gap = polygonSurfaceGap(fA.vertices, fB.vertices);
+                    if (gap <= 3.5) {
+                        mergeFruits(fA, fB);
+                        break;
+                    } else if (gap < 9.0 && dist > 0.001) {
+                        const pull = 0.00018 * (fA.mass + fB.mass);
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        Matter.Body.applyForce(fA, fA.position, { x: nx * pull, y: ny * pull });
+                        Matter.Body.applyForce(fB, fB.position, { x: -nx * pull, y: -ny * pull });
+                    }
+                } else {
+                    const touchDist = fA.circleRadius + fB.circleRadius;
+                    if (dist <= touchDist + 3.0) {
+                        mergeFruits(fA, fB);
+                        break;
+                    } else if (dist < touchDist + 9.0 && dist > 0.001) {
+                        const pull = 0.00018 * (fA.mass + fB.mass);
+                        const nx = dx / dist;
+                        const ny = dy / dist;
+                        Matter.Body.applyForce(fA, fA.position, { x: nx * pull, y: ny * pull });
+                        Matter.Body.applyForce(fB, fB.position, { x: -nx * pull, y: -ny * pull });
+                    }
                 }
             }
         }
@@ -722,7 +799,7 @@
             const f = fruits[i];
             if (now - f.spawnTime < 1200) continue;
 
-            const topEdge = f.position.y - f.circleRadius;
+            const topEdge = f.bounds ? f.bounds.min.y : (f.position.y - f.circleRadius);
             if (topEdge < DANGER_Y && f.speed < 1.0) {
                 hasOverflowingFruit = true;
                 break;
@@ -950,46 +1027,20 @@
         ctx.restore();
     }
 
-    function getAimLandingY(curX, radius) {
-        let targetY = JAR_BOTTOM - radius;
-        for (let i = 0; i < fruits.length; i++) {
-            const f = fruits[i];
-            const dx = Math.abs(f.position.x - curX);
-            const sumR = f.circleRadius + radius;
-            if (dx < sumR) {
-                const contactY = f.position.y - Math.sqrt(Math.max(0, sumR * sumR - dx * dx));
-                if (contactY < targetY && contactY > DROP_Y) {
-                    targetY = contactY;
-                }
-            }
-        }
-        return targetY;
-    }
-
     function drawAimingGuide() {
         if (!canDrop || isGameOver || isScoopMode) return;
 
         const radius = FRUIT_DEFS[currentTier].radius;
         const curX = Math.min(Math.max(aimX, JAR_LEFT + radius + 2), JAR_RIGHT - radius - 2);
-        const landingY = getAimLandingY(curX, radius);
 
         ctx.save();
-        ctx.setLineDash([4, 6]);
-        ctx.strokeStyle = 'rgba(255, 248, 210, 0.38)';
+        ctx.setLineDash([5, 6]);
+        ctx.strokeStyle = 'rgba(255, 248, 210, 0.42)';
         ctx.lineWidth = 2;
 
         ctx.beginPath();
-        ctx.moveTo(curX, DROP_Y + radius + 2);
-        ctx.lineTo(curX, Math.max(DROP_Y + radius + 4, landingY - radius));
-        ctx.stroke();
-
-        // Тонкий призрачный силуэт точки приземления
-        ctx.beginPath();
-        ctx.arc(curX, landingY, radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 248, 210, 0.09)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255, 248, 210, 0.28)';
-        ctx.lineWidth = 1.6;
+        ctx.moveTo(curX, DROP_Y + radius + 4);
+        ctx.lineTo(curX, JAR_BOTTOM - 10);
         ctx.stroke();
 
         ctx.restore();
@@ -1031,11 +1082,22 @@
             ctx.save();
             ctx.translate(body.position.x, body.position.y);
 
-            // Мягкая тень в мировых координатах (никогда не переворачивается вверх ногами)
-            ctx.beginPath();
-            ctx.arc(0, 3, def.radius * 0.96, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(24, 10, 3, 0.22)';
-            ctx.fill();
+            // Мягкая тень в мировых координатах (учитывает форму: круг или банка)
+            if (body.isJarBox) {
+                ctx.save();
+                ctx.translate(0, 3);
+                ctx.rotate(body.angle);
+                ctx.beginPath();
+                ctx.roundRect(-body.boundHalfW, -body.boundHalfH, body.boundHalfW * 2, body.boundHalfH * 2, def.radius * 0.24);
+                ctx.fillStyle = 'rgba(24, 10, 3, 0.24)';
+                ctx.fill();
+                ctx.restore();
+            } else {
+                ctx.beginPath();
+                ctx.arc(0, 3, def.radius * 0.96, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(24, 10, 3, 0.22)';
+                ctx.fill();
+            }
 
             if (isScoopMode) {
                 const pulse = 0.65 + Math.sin(performance.now() * 0.01) * 0.25;
@@ -1044,7 +1106,12 @@
                 ctx.strokeStyle = `rgba(255, 213, 79, ${pulse})`;
                 ctx.lineWidth = 2.5;
                 ctx.beginPath();
-                ctx.arc(0, 0, def.radius + 3, 0, Math.PI * 2);
+                if (body.isJarBox) {
+                    ctx.rotate(body.angle);
+                    ctx.roundRect(-body.boundHalfW - 3, -body.boundHalfH - 3, body.boundHalfW * 2 + 6, body.boundHalfH * 2 + 6, def.radius * 0.25);
+                } else {
+                    ctx.arc(0, 0, def.radius + 3, 0, Math.PI * 2);
+                }
                 ctx.stroke();
                 ctx.restore();
             }
@@ -1094,7 +1161,8 @@
         for (let i = 0; i < fruits.length; i++) {
             const f = fruits[i];
             const dist = Math.hypot(f.position.x - x, f.position.y - y);
-            if (dist <= f.circleRadius + 16 && dist < bestDist) {
+            const hitRadius = (f.circleRadius || f.boundHalfW) + 16;
+            if ((Matter.Vertices.contains(f.vertices, { x, y }) || dist <= hitRadius) && dist < bestDist) {
                 best = f;
                 bestDist = dist;
             }
@@ -1203,7 +1271,7 @@
         const now = performance.now();
         for (let i = 0; i < fruits.length; i++) {
             const b = fruits[i];
-            const isNearTop = (b.position.y - b.circleRadius) < DANGER_Y + 28;
+            const isNearTop = (b.bounds ? b.bounds.min.y : (b.position.y - b.circleRadius)) < DANGER_Y + 28;
             const centerPush = b.position.x > WIDTH / 2 ? -1.4 : 1.4;
             const vx = (Math.random() - 0.5) * 8.2 + centerPush;
             const vy = isNearTop ? (0.8 + Math.random() * 1.4) : -(2.2 + Math.random() * 3.2);
@@ -1222,7 +1290,7 @@
 
     function rescueHarvest() {
         if (rescueUsedThisRun) return false;
-        const sorted = fruits.slice().sort((a, b) => (a.position.y - a.circleRadius) - (b.position.y - b.circleRadius));
+        const sorted = fruits.slice().sort((a, b) => a.bounds.min.y - b.bounds.min.y);
         const removeCount = sorted.length > 0 ? Math.min(sorted.length, Math.max(1, Math.ceil(sorted.length * 0.35))) : 0;
         const toRemove = sorted.slice(0, removeCount);
 
