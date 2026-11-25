@@ -24,10 +24,57 @@
             this.interstitialCooldownMs = INTERSTITIAL_COOLDOWN_MS;
             this._rewardPreloaded = false;
             this._interstitialPreloaded = false;
+            this._lifecycleBound = false;
             this.coins = parseInt(this.loadCloudProgress('coins', 100), 10) || 0;
 
+            this._applyPlatformBodyClasses();
+            this._bindLifecycleEvents();
             this._initUI();
             this._initVKBridge();
+        }
+
+        _applyPlatformBodyClasses() {
+            if (!document.body) return;
+            try {
+                const urlParams = new URLSearchParams(window.location.search || '');
+                const vkPlatform = urlParams.get('vk_platform') || '';
+                const s = this._getSocialSignals();
+                if (this.isSocialEnv) {
+                    document.body.classList.add('vk-env');
+                    if (['mobile_ios', 'mobile_android', 'mobile_iphone', 'mobile_ipad'].includes(vkPlatform) || s.isWebView) {
+                        document.body.classList.add('vk-mobile-app');
+                    }
+                }
+            } catch (_) {}
+        }
+
+        _bindLifecycleEvents() {
+            if (this._lifecycleBound) return;
+            this._lifecycleBound = true;
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this._pauseGameAudio();
+                } else if (!this.isAdShowing) {
+                    this._resumeGameAudio();
+                }
+            });
+            try {
+                if (window.vkBridge && typeof window.vkBridge.subscribe === 'function') {
+                    window.vkBridge.subscribe((event) => {
+                        const detail = event && event.detail;
+                        if (!detail) return;
+                        if (detail.type === 'VKWebAppUpdateConfig' && detail.data && detail.data.insets) {
+                            const insets = detail.data.insets;
+                            document.documentElement.style.setProperty('--vk-inset-top', `${insets.top || 0}px`);
+                            document.documentElement.style.setProperty('--vk-inset-bottom', `${insets.bottom || 0}px`);
+                        } else if (detail.type === 'VKWebAppViewHide') {
+                            this._pauseGameAudio();
+                        } else if (detail.type === 'VKWebAppViewRestore') {
+                            if (!this.isAdShowing) this._resumeGameAudio();
+                        }
+                    });
+                }
+            } catch (_) {}
         }
 
         _getSocialSignals() {
@@ -128,7 +175,11 @@
         }
 
         _canUseVkStorage() {
-            return this.platform === 'vk' && this._canUseVkBridge();
+            return (this.platform === 'vk' || this.platform === 'ok') && this._canUseVkBridge();
+        }
+
+        _storageKey(key) {
+            return this.platform === 'ok' ? `${this.prefix}_ok_${key}` : `${this.prefix}_${key}`;
         }
 
         _isActivelyHostedInContainer() {
@@ -183,6 +234,11 @@
             try {
                 window.vkBridge.send('VKWebAppInit')
                     .then(() => {
+                        window.vkBridge.send('VKWebAppSetViewSettings', {
+                            status_bar_style: 'light',
+                            action_bar_color: '#713d1f',
+                            navigation_bar_color: '#2b1509'
+                        }).catch(() => {});
                         this._preloadNativeAds();
                     })
                     .catch(() => {
@@ -524,7 +580,7 @@
         }
 
         saveCloudProgress(key, data) {
-            const fullKey = `${this.prefix}_${key}`;
+            const fullKey = this._storageKey(key);
             const serialized = JSON.stringify(data);
             try {
                 localStorage.setItem(fullKey, serialized);
@@ -543,7 +599,7 @@
         }
 
         loadCloudProgress(key, defaultVal) {
-            const fullKey = `${this.prefix}_${key}`;
+            const fullKey = this._storageKey(key);
             try {
                 const raw = localStorage.getItem(fullKey);
                 return raw !== null ? JSON.parse(raw) : defaultVal;
@@ -567,7 +623,8 @@
                 return Promise.resolve({});
             }
 
-            const fullKeys = list.map((k) => `${this.prefix}_${k}`);
+            const keyPrefix = this.platform === 'ok' ? `${this.prefix}_ok_` : `${this.prefix}_`;
+            const fullKeys = list.map((k) => this._storageKey(k));
             try {
                 return this._sendVkBridgeWithTimeout('VKWebAppStorageGet', { keys: fullKeys }, 5000, 800)
                     .then((res) => {
@@ -575,8 +632,8 @@
                         const items = (res && Array.isArray(res.keys)) ? res.keys : [];
                         items.forEach((entry) => {
                             if (!entry || typeof entry.key !== 'string' || !entry.value) return;
-                            const shortKey = entry.key.startsWith(`${this.prefix}_`)
-                                ? entry.key.slice(this.prefix.length + 1)
+                            const shortKey = entry.key.startsWith(keyPrefix)
+                                ? entry.key.slice(keyPrefix.length)
                                 : entry.key;
                             try {
                                 const parsed = JSON.parse(entry.value);
@@ -595,6 +652,16 @@
                     .catch(() => ({}));
             } catch (_) {
                 return Promise.resolve({});
+            }
+        }
+
+        async sharePost(message) {
+            if (!this.isSocialEnv || !this._canUseVkBridge()) return false;
+            try {
+                await this._sendVkBridgeWithTimeout('VKWebAppShowWallPostBox', { message }, 30000, 1000);
+                return true;
+            } catch (_) {
+                return false;
             }
         }
     }
